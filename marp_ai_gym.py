@@ -124,8 +124,11 @@ class MarpAIGym(gym.Env):
             self.amr1_dest, self.amr2_dest = (2, 3), (3, 2)
 
         if self.current_level == 1:
-            self.amr1_dest, self.amr2_dest = (4, 3), (3, 4)
-        
+             if level_distribution < 0.6:
+                 self.amr1_dest, self.amr2_dest = (2, 3), (3, 2) 
+             else:
+                self.amr1_dest, self.amr2_dest = (4, 3), (3, 4) 
+ 
         elif self.current_level == 2:
             if level_distribution < 0.6:
                 self.amr1_dest, self.amr2_dest = (4, 3), (3, 4)  # Level 1 settings
