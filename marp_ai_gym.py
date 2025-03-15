@@ -12,10 +12,10 @@ INVALID_ACTION_REWARD = -10
 IDLE_REWARD = -1
 BOTH_IDLE_REWARD = -5
 DEST_REACH_REWARD = 200
-DEST_STAY_REWARD = 5 
-SUCCESS_REWARD = 400
-COMEOUT_FROM_DEST_REWARD = -50
-DISTANCE_REWARD_MODIFIER = 4
+DEST_STAY_REWARD = 20 
+SUCCESS_REWARD = 200
+COMEOUT_FROM_DEST_REWARD = -30
+DISTANCE_REWARD_MODIFIER = 2
 RECENT_POSES_SIZE = 3
 CYCLIC_REWARD = -2
 
@@ -23,9 +23,9 @@ MAX_TIMESTEP = 100
 GRID_SIZE = 9
 
 # Curriculum Learning Parameters
-SCORE_TARGET_UP = 350
-SCORE_TARGET_DOWN = 100
-CURRICULUM_INTERVAL = 1000
+SCORE_TARGET_UP = -350
+SCORE_TARGET_DOWN = -100
+CURRICULUM_INTERVAL = 3000
 
 class MarpAIGym(gym.Env):
     def __init__(self, render_flag=False):
@@ -124,54 +124,54 @@ class MarpAIGym(gym.Env):
             self.amr1_dest, self.amr2_dest = (2, 3), (3, 2)
 
         if self.current_level == 1:
-             if level_distribution < 0.6:
+             if level_distribution < 0.3:
                  self.amr1_dest, self.amr2_dest = (2, 3), (3, 2) 
              else:
                 self.amr1_dest, self.amr2_dest = (4, 3), (3, 4) 
  
         elif self.current_level == 2:
-            if level_distribution < 0.6:
+            if level_distribution < 0.5:
                 self.amr1_dest, self.amr2_dest = (4, 3), (3, 4)  # Level 1 settings
             else:
                 self.amr1_dest, self.amr2_dest = (3, 4), (4, 3)  # New for Level 2
         
         elif self.current_level == 3:
-            if level_distribution < 0.6:
+            if level_distribution < 0.5:
                 # Follow Level 2 logic 
-                if np.random.rand() < 0.6:
+                if np.random.rand() < 0.5:
                     self.amr1_dest, self.amr2_dest = (4, 3), (3, 4)  
                 else:
                     self.amr1_dest, self.amr2_dest = (3, 4), (4, 3)  
             else:
-                self.amr1_dest = random.sample(predefined_positions_1, 2)  # New for Level 3
-                self.amr2_dest = random.sample(predefined_positions_2, 2)
+                self.amr1_dest = random.choice(predefined_positions_1)  # New for Level 3
+                self.amr2_dest = random.choice(predefined_positions_2)
         
         elif self.current_level == 4:
-            if level_distribution < 0.6:
+            if level_distribution < 0.5:
                 # Follow Level 3 logic 
-                if np.random.rand() < 0.6:
-                    if np.random.rand() < 0.6:
+                if np.random.rand() < 0.5:
+                    if np.random.rand() < 0.5:
                         self.amr1_dest, self.amr2_dest = (4, 3), (3, 4)  
                     else:
                         self.amr1_dest, self.amr2_dest = (3, 4), (4, 3)  
                 else:
-                    self.amr1_dest = random.sample(predefined_positions_1, 2)  
-                    self.amr2_dest = random.sample(predefined_positions_2, 2)
+                    self.amr1_dest = random.choice(predefined_positions_1)  
+                    self.amr2_dest = random.choice(predefined_positions_2)
             else:
                 self.amr1_dest, self.amr2_dest = random.sample(predefined_positions_3, 2)  # New for Level 4
         
         elif self.current_level == 5:
-            if level_distribution < 0.6:
+            if level_distribution < 0.5:
                 # Follow Level 4 logic 
-                if np.random.rand() < 0.6:
-                    if np.random.rand() < 0.6:
-                        if np.random.rand() < 0.6:
+                if np.random.rand() < 0.5:
+                    if np.random.rand() < 0.5:
+                        if np.random.rand() < 0.5:
                             self.amr1_dest, self.amr2_dest = (4, 3), (3, 4)  
                         else:
                             self.amr1_dest, self.amr2_dest = (3, 4), (4, 3)  
                     else:
-                        self.amr1_dest = random.sample(predefined_positions_1, 2)  
-                        self.amr2_dest = random.sample(predefined_positions_2, 2)
+                        self.amr1_dest = random.choice(predefined_positions_1)  
+                        self.amr2_dest = random.choice(predefined_positions_2)
                 else:
                     self.amr1_dest, self.amr2_dest = random.sample(predefined_positions_3, 2)  
         
@@ -180,18 +180,18 @@ class MarpAIGym(gym.Env):
         
         
         elif self.current_level == 6:
-            if level_distribution < 0.6:
+            if level_distribution < 0.5:
                 # Follow Level 5 logic 
-                if np.random.rand() < 0.6:
-                    if np.random.rand() < 0.6:
-                        if np.random.rand() < 0.6:
-                            if np.random.rand() < 0.6:
+                if np.random.rand() < 0.5:
+                    if np.random.rand() < 0.5:
+                        if np.random.rand() < 0.5:
+                            if np.random.rand() < 0.5:
                                 self.amr1_dest, self.amr2_dest = (4, 3), (3, 4)  # Level 1 settings
                             else:
                                 self.amr1_dest, self.amr2_dest = (3, 4), (4, 3)  # Level 2 settings
                         else:
-                            self.amr1_dest = random.sample(predefined_positions_1, 2)  
-                            self.amr2_dest = random.sample(predefined_positions_2, 2)
+                            self.amr1_dest = random.choice(predefined_positions_1)  
+                            self.amr2_dest = random.choice(predefined_positions_2)
                     else:
                         self.amr1_dest, self.amr2_dest = random.sample(predefined_positions_3, 2)   
                 else:
