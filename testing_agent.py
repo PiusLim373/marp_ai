@@ -10,7 +10,7 @@ def ppo_test():
     env = MarpAIGym(render_flag=True)  # Create the environment
     gym_env = DummyVecEnv([lambda: env])  # Use DummyVecEnv for vectorized environments
     cwd = os.getcwd()
-    model_path = os.path.join(cwd, "saves", "sample_model.zip")
+    model_path = os.path.join(cwd, "ppo_marp_ai_model.zip")
     model = PPO.load(model_path)  # Load the trained model
     # Testing the agent
     n_episodes = 10  # Number of episodes to run

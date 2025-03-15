@@ -36,6 +36,7 @@ class MarpAIGym(gym.Env):
             self.pick_start_dest(self.valid_waypoints)
         )
         self.solved_counter = 0
+        random.seed(1) # Set the seed to make random values deterministic.
 
     def create_graph(self):
         return {
@@ -87,14 +88,93 @@ class MarpAIGym(gym.Env):
         self.amr2_recent_poses = []
         self.episode_count += 1
 
-    def pick_start_dest(self, valid_waypoints):
-        amr1_start, amr1_dest = random.sample(valid_waypoints, 2)
-        crossing_candidates = [wp for wp in valid_waypoints if wp not in {amr1_start, amr1_dest}]
-        amr2_start, amr2_dest = random.sample(crossing_candidates, 2)
+    def pick_start_dest(self, valid_waypoints, difficulty=2):
+        junctions_wp = [wp for wp in valid_waypoints if len(self.graph[wp]) == 5]
+        nj_wp = [wp for wp in valid_waypoints if wp not in junctions_wp] # Non-junction waypoints
+        x_nj_wp = {wp[0]:[] for wp in nj_wp} # Non-junction waypoints along X
+        y_nj_wp = {wp[1]:[] for wp in nj_wp} # Non-junction waypoints along Y
+        for wp in nj_wp: # Populate X and Y NJ Waypoints
+            x,y = wp
+            x_nj_wp[x].append(wp)
+            y_nj_wp[y].append(wp)
+
+        # print("Printing pick start dest")
+        # print(junctions_wp)
+        # print(nj_wp)
+        # print(x_nj_wp)
+        # print(y_nj_wp)
+
+        # Filter x and y values that have more than 1 waypoint
+        x_nj_wp_mtone = {k: v for (k, v) in x_nj_wp.items() if len(v) >= 2}
+        y_nj_wp_mtone = {k: v for (k, v) in y_nj_wp.items() if len(v) >= 2}
+        if difficulty == 1: # Difficulty 1 - Any Start and End on the same line
+            # Randomise amr 1 along X and amr 2 along Y
+            amr1_start, amr1_dest = random.sample(x_nj_wp[random.choice(list(x_nj_wp_mtone))], 2)
+            amr2_start, amr2_dest = random.sample(y_nj_wp[random.choice(list(y_nj_wp_mtone))], 2)
+        elif difficulty == 2: # Difficulty 2 - Start and End Perpendicular to each other
+            randJunction = random.sample(junctions_wp,1)
+            junctionX, junctionY = randJunction[0]
+
+            # Randomise amr 1 dest and amr 2 start along X and amr 2 dest and amr 1 start along Y
+            amr1_dest, amr2_start = random.sample(x_nj_wp_mtone[junctionX], 2)
+            amr1_start, amr2_dest = random.sample(y_nj_wp_mtone[junctionY], 2)
+        elif difficulty == 3: # Difficulty 3 - Same axis, order of start pos same as dest pos
+            randJunction = random.sample(junctions_wp,1)
+            junctionX, junctionY = randJunction[0]
+            
+            randAxis = random.randint(0, 1)
+            
+            # TODO: Randomise start and dest to be either left or right
+            if randAxis == 0: # X-axis
+                dest1, dest2 = random.sample([wp for wp in y_nj_wp_mtone[junctionX] if wp[0] > junctionX] + randJunction, 2)
+                start1, start2 = random.sample([wp for wp in y_nj_wp_mtone[junctionX] if wp[0] < junctionX] + randJunction, 2)
+            else: # Y-axis
+                dest1, dest2 = random.sample([wp for wp in x_nj_wp_mtone[junctionY] if wp[1] > junctionY] + randJunction, 2)
+                start1, start2 = random.sample([wp for wp in x_nj_wp_mtone[junctionY] if wp[1] < junctionY] + randJunction, 2)
+
+            if dest1 > dest2: # Reorder the destinations
+                tempDest = dest1
+                dest1 = dest2
+                dest2 = tempDest
+            if start1 < start2: # Reorder the start
+                tempStart = start1
+                start1 = start2
+                start2 = tempStart
+            amr1_start, amr1_dest = [start1, dest1]
+            amr2_start, amr2_dest = [start2, dest2]
+        elif difficulty == 4:
+            randJunction = random.sample(junctions_wp,1)
+            junctionX, junctionY = randJunction[0]
+            
+            randAxis = random.randint(0, 1)
+            
+            # TODO: Randomise start and dest to be either left or right
+            if randAxis == 0: # X-axis
+                dest1, dest2 = random.sample([wp for wp in y_nj_wp_mtone[junctionX] if wp[0] > junctionX] + randJunction, 2)
+                start1, start2 = random.sample([wp for wp in y_nj_wp_mtone[junctionX] if wp[0] < junctionX] + randJunction, 2)
+            else: # Y-axis
+                dest1, dest2 = random.sample([wp for wp in x_nj_wp_mtone[junctionY] if wp[1] > junctionY] + randJunction, 2)
+                start1, start2 = random.sample([wp for wp in x_nj_wp_mtone[junctionY] if wp[1] < junctionY] + randJunction, 2)
+
+            if dest1 > dest2: # Reorder the destinations
+                tempDest = dest1
+                dest1 = dest2
+                dest2 = tempDest
+            if start1 > start2: # Reorder the start
+                tempStart = start1
+                start1 = start2
+                start2 = tempStart
+            amr1_start, amr1_dest = [start1, dest1]
+            amr2_start, amr2_dest = [start2, dest2]
+        elif difficulty == 5:
+            amr1_start, amr1_dest = random.sample(valid_waypoints, 2)
+            crossing_candidates = [wp for wp in valid_waypoints if wp not in {amr1_start, amr1_dest}]
+            amr2_start, amr2_dest = random.sample(crossing_candidates, 2)
+        
         return amr1_start, amr1_dest, amr2_start, amr2_dest
 
     def pad_waypoints(self, waypoints, max_size=5, pad_value=(-100, -100)):
-        # pad waypoints with (-100, -100) until max_size is reached
+        # pad waypoints (the invalid actions) with (-100, -100) until max_size is reached
         return waypoints + [pad_value] * (max_size - len(waypoints))
 
     def reset(self, seed=None):
