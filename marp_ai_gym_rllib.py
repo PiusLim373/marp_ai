@@ -25,12 +25,15 @@ DEST_REACH_REWARD = 50
 # others
 CYCLIC_HISTORY_SIZE = 3
 MAX_TIMESTEP = 20
-OBSERVATION_SPACE = spaces.Box(
-    low=np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, -1, -1] + [-100] * 20, dtype=np.float32),
-    high=np.array([10, 10, 10, 10, 10, 10, 10, 10, 10, 1, 1, 10, 1, 1] + [10] * 20, dtype=np.float32),
-    shape=(34,),
-    dtype=np.float32,
-)
+OBSERVATION_SPACE = spaces.Dict({
+    "obs": spaces.Box(
+        low=np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, -1, -1] + [-100] * 20, dtype=np.float32),
+        high=np.array([10, 10, 10, 10, 10, 10, 10, 10, 10, 1, 1, 10, 1, 1] + [10] * 20, dtype=np.float32),
+        shape=(34,),
+        dtype=np.float32
+    ),
+    "action_mask": spaces.Box(low=0, high=1, shape=(25,), dtype=np.int8)
+})
 ACTION_SPACE = spaces.Discrete(25)
 
 
@@ -50,14 +53,14 @@ class MarpAIGym(gym.Env):
             "dest_reach": 0,
             "max_timestep": 0,
         }
-
+        # level and difficulties
+        self.level = 0
+        self.selected_level = 0
+        
         self.graph = self.create_graph()
         self.fixed_map_junction = (2, 2)  # junction
         self.valid_waypoints = list(self.graph.keys())
 
-        # level and difficulties
-        self.level = 0
-        self.selected_level = 0
         self.experiences = {
             0: {
                 "level_up_threshold": 1500,
@@ -89,7 +92,10 @@ class MarpAIGym(gym.Env):
                 "last_solved_episode": 0,
                 "solved_counter": 0,
             },  # both amr share path, with deadlock
-            6: {"level_up_threshold": 2000, "last_solved_episode": 0, "solved_counter": 0},  # random spawn and dest
+            6: {"level_up_threshold": 2000, 
+                "last_solved_episode": 0, 
+                "solved_counter": 0,
+            },  # random spawn and dest
             7: {
                 "level_up_threshold": 5000,
                 "last_solved_episode": 0,
@@ -266,6 +272,12 @@ class MarpAIGym(gym.Env):
             print("Stuck for 300 episodes, generating new data")
             self.generate_new_data = True
             self.last_generate_data_when_stuck = self.episode_count
+            
+        # For Level 7: regenerate map after every 50 successful episodes
+        if self.level == 7 and self.experiences[7]["solved_counter"] > 0 and self.experiences[7]["solved_counter"] % 50 == 0:
+            print("50 successful episodes on current random map — regenerating map")
+            self.graph = self.generate_map()  # regenerate map
+            self.generate_new_data = True
 
         # Increase difficulty
         if (
@@ -279,7 +291,7 @@ class MarpAIGym(gym.Env):
         if self.generate_new_data:
             print("=============================================================================")
             print(
-                f"generating new data, episdode count: {self.episode_count}, level: {self.level}, experience: {self.experiences}"
+                f"generating new data, episode count: {self.episode_count}, level: {self.level}, experience: {self.experiences}"
             )
             print(f"result: {self.result}")
             self.picked_amr1_pose, self.picked_amr1_dest, self.picked_amr2_pose, self.picked_amr2_dest = (
@@ -305,8 +317,8 @@ class MarpAIGym(gym.Env):
             self.picked_amr2_dest,
         )
 
-        self.amr1_options = self.pad_waypoints(self.graph[self.amr1_pose])
-        self.amr2_options = self.pad_waypoints(self.graph[self.amr2_pose])
+        self.amr1_options = self.pad_waypoints(self.graph.get(self.amr1_pose, []))
+        self.amr2_options = self.pad_waypoints(self.graph.get(self.amr2_pose, []))
         self.step_count = 0
         self.episode_total_score = 0
         self.amr1_last_distance_to_goal = 0.0
@@ -496,7 +508,9 @@ class MarpAIGym(gym.Env):
                 [coord for waypoint in self.amr2_options for coord in waypoint],
             )
         )
-        return combined_array, {}
+        #Call action mask
+        action_mask = self.get_action_mask()
+        return {"obs": combined_array, "action_mask": action_mask}, {}
 
     def dist(self, x1, y1, x2, y2):
         return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
@@ -633,7 +647,8 @@ class MarpAIGym(gym.Env):
             )
         )
         observations = combined_array
-        return (observations, self.reward, self.terminated, self.truncated, {})
+        action_mask = self.get_action_mask()
+        return {"obs": observations, "action_mask": action_mask}, self.reward, self.terminated, self.truncated, {}
 
     def step(self, action):
         self.step_count += 1
@@ -654,6 +669,12 @@ class MarpAIGym(gym.Env):
 
         self.episode_total_score += self.reward
         return self.get_all_state()
+    
+    def get_action_mask(self):
+        amr1_mask = [0 if wp == (-100, -100) else 1 for wp in self.amr1_options]
+        amr2_mask = [0 if wp == (-100, -100) else 1 for wp in self.amr2_options]
+        action_mask = np.array([amr1_mask[i % 5] * amr2_mask[i // 5] for i in range(25)], dtype=np.int8)
+        return action_mask
 
     def render(self):
         if not hasattr(self, "_initialized_render"):
